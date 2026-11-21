@@ -14,6 +14,8 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/gugemichael/nimo4go"
+	"path/filepath"
+	"regexp"
 )
 
 var VERSION = "$"
@@ -133,8 +135,20 @@ func main() {
 	}
 
 	// remove result file if has
-	if len(conf.Opts.ResultFile) > 0 {
-		os.Remove(conf.Opts.ResultFile)
+	if conf.Opts.ResultFile != "" {
+		const reportDir = "/var/lib/redis-full-check/reports"
+
+		name := conf.Opts.ResultFile
+		validName := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+		if !validName.MatchString(name) {
+			panic(fmt.Errorf("invalid --result filename %q", name))
+		}
+
+		resultPath := filepath.Join(reportDir, name)
+		if err := os.Remove(resultPath); err != nil && !os.IsNotExist(err) {
+			panic(fmt.Errorf("remove previous result file: %w", err))
+		}
+		conf.Opts.ResultFile = resultPath
 	}
 
 	fullCheckParameter := checker.FullCheckParameter{

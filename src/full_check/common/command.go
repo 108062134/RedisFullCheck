@@ -31,20 +31,32 @@ func ParseKeyspace(content []byte) (map[int32]int64, error) {
 		line = bytes.TrimSpace(line)
 		if bytes.HasPrefix(line, []byte("db")) == true {
 			// line "db0:keys=18,expires=0,avg_ttl=0"
-			items := bytes.Split(line, []byte(":"))
-			db, err := strconv.Atoi(string(items[0][2:]))
+			items := bytes.SplitN(line, []byte(":"), 2)
+			if len(items) != 2 {
+				return nil, fmt.Errorf("invalid keyspace entry: missing separator")
+			}
+
+			db, err := strconv.ParseInt(string(items[0][2:]), 10, 32)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("invalid Redis DB index: %w", err)
 			}
-			nums := bytes.Split(items[1], []byte(","))
-			if bytes.HasPrefix(nums[0], []byte("keys=")) == false {
-				return nil, fmt.Errorf("invalid info Keyspace: %s", string(content))
+			if db < 0 {
+				return nil, fmt.Errorf("negative Redis DB index: %d", db)
 			}
-			keysNum, err := strconv.ParseInt(string(nums[0][5:]), 10, 0)
+
+			nums := bytes.SplitN(items[1], []byte(","), 2)
+			if !bytes.HasPrefix(nums[0], []byte("keys=")) {
+				return nil, fmt.Errorf("invalid keyspace entry: missing keys count")
+			}
+			keysNum, err := strconv.ParseInt(string(nums[0][5:]), 10, 64)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("invalid Redis key count: %w", err)
 			}
-			reply[int32(db)] = int64(keysNum)
+			if keysNum < 0 {
+				return nil, fmt.Errorf("negative Redis key count: %d", keysNum)
+			}
+
+			reply[int32(db)] = keysNum
 		} // end true
 	} // end for
 	return reply, nil

@@ -415,8 +415,16 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
 	conflictKeyTableName, conflictFieldTableName := p.GetCurrentResultTable()
 
 	var resultfile *os.File
-	if len(conf.Opts.ResultFile) > 0 {
-		resultfile, _ = os.OpenFile(conf.Opts.ResultFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if conf.Opts.ResultFile != "" {
+		var err error
+		resultfile, err = os.OpenFile(
+			conf.Opts.ResultFile,
+			os.O_WRONLY|os.O_CREATE|os.O_APPEND,
+			0600,
+		)
+		if err != nil {
+			panic(fmt.Errorf("open result file: %w", err))
+		}
 		defer resultfile.Close()
 	}
 
